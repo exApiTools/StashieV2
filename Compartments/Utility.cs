@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using static ExileCore.PoEMemory.MemoryObjects.ServerInventory;
 
 namespace Stashie.Compartments;
@@ -33,7 +34,7 @@ internal class Utility
         try
         {
             StashieCore.Main.Settings.TabToVisitWhenDone.Max = (int)StashieCore.Main.GameController.Game.IngameState.IngameUi.StashElement.TotalStashes - 1;
-            var names = StashieCore.Main.GameController.Game.IngameState.IngameUi.StashElement.AllStashNames;
+            var names = StashieCore.Main.GameController.Game.IngameState.IngameUi.StashElement.Inventories.Select(x => x.TabName).ToList();
             StashTabNameCoRoutine.UpdateStashNames(names);
         }
         catch (Exception e)

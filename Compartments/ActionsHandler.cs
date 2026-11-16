@@ -7,6 +7,7 @@ using System.Collections;
 using System.Linq;
 using System.Windows.Forms;
 using static Stashie.StashieCore;
+using ExileCore.Shared.Helpers;
 
 namespace Stashie.Compartments;
 
@@ -16,8 +17,9 @@ internal class ActionsHandler
 
     public static void CleanUp()
     {
+        DebugWindow.LogMsg("Stashie: Done. Releasing modifier keys..");
         Input.KeyUp(Keys.LControlKey);
-        Input.KeyUp(Keys.Shift);
+        Input.KeyUp(Keys.LShiftKey);
     }
 
     public static void HandleSwitchToTabEvent(object tab)
@@ -54,10 +56,8 @@ internal class ActionsHandler
         var travelDistance = Math.Abs(tabIndex - Main.VisibleStashIndex);
         if (travelDistance == 0)
             yield break;
-
+        
         yield return SwitchToTabViaArrowKeys(tabIndex);
-
-        yield return Delay();
     }
 
     public static IEnumerator SwitchToTabViaArrowKeys(int tabIndex, int numberOfTries = 1)
@@ -81,9 +81,10 @@ internal class ActionsHandler
             yield return PressKey(Keys.Right, travelDistance);
         }
 
+        yield return Delay();
+
         if (GetIndexOfCurrentVisibleTab() != tabIndex)
         {
-            yield return Delay(20);
             yield return SwitchToTabViaArrowKeys(tabIndex, numberOfTries + 1);
         }
     }
@@ -93,6 +94,7 @@ internal class ActionsHandler
         for (var i = 0; i < repetitions; i++)
         {
             yield return Input.KeyPress(key);
+            yield return new WaitTime(Main.Settings.StashItemDelay);
         }
     }
 
@@ -125,19 +127,41 @@ internal class ActionsHandler
             yield break;
         }
 
-        var itemsSortedByStash = Main.DropItems.OrderBy(x => x.SkipSwitchTab || x.StashIndex == Main.VisibleStashIndex ? 0 : 1).ThenBy(x => x.StashIndex).ToList();
-        
+        var items = Main.DropItems;
+
         // If bulk stash is enabled, filter out duplicates of stackable currency and fragments so we can right-click stash them in bulk
-        if (Main.Settings.EnableBulkStash)        
-            itemsSortedByStash = itemsSortedByStash
-                .GroupBy(x => (x.ItemData.Name, x.ItemData.ClassName == "StackableCurrency" || x.ItemData.ClassName == "Fragment"))
-                .Select(g => g.First())
+        if (Main.Settings.EnableBulkStash) {
+            items = items
+                .GroupBy(x => x.ItemData.ClassName == "StackableCurrency" || x.ItemData.ClassName == "Fragment" ? x.ItemData.Name : null)               
+                .SelectMany(g => string.IsNullOrEmpty(g.Key) ? g.Select(x => x) : new[] { g.First() })
                 .ToList();
+        }
+
+        var itemsSortedByStash = items
+            .OrderBy(x => (
+                x.SkipSwitchTab || x.StashIndex == Main.VisibleStashIndex ? 0 : 1,
+                x.SkipSwitchTab || x.StashIndex == Main.VisibleStashIndex ? int.MaxValue : x.StashIndex
+            ))
+            .ThenBy(x => x.ShiftForStashing)
+            .ThenBy(x => x.inventoryPos.X)
+            .ThenBy(x => x.inventoryPos.Y)
+            .ToList();
 
         Input.KeyDown(Keys.LControlKey);
-        Main.LogMessage($"Want to drop {itemsSortedByStash.Count} items.");
-        foreach (var stashResult in itemsSortedByStash)
-        {
+        yield return Delay();
+
+        bool shiftHeld = false;
+        foreach (var stashResult in itemsSortedByStash) {            
+            if (stashResult.ShiftForStashing && !shiftHeld) {
+                Input.KeyDown(Keys.LShiftKey);
+                shiftHeld = true;
+                yield return Delay();
+            } else if (!stashResult.ShiftForStashing && shiftHeld) {
+                Input.KeyUp(Keys.LShiftKey);
+                shiftHeld = false;
+                yield return Delay();
+            }
+
             Main.CoroutineIteration++;
             Main.CoroutineWorker?.UpdateTicks(Main.CoroutineIteration);
             var maxTryTime = Main.DebugTimer.ElapsedMilliseconds + 2000;
@@ -146,7 +170,7 @@ internal class ActionsHandler
             if (!stashResult.SkipSwitchTab)
                 yield return SwitchToTab(stashResult.StashIndex);
 
-            yield return new WaitFunctionTimed(() => Main.GameController.IngameState.IngameUi.StashElement.AllInventories[Main.VisibleStashIndex] != null, true, 2000,
+            yield return new WaitFunctionTimed(() => Main.GameController.IngameState.IngameUi.StashElement.VisibleStash != null, true, 2000,
                 $"Error while loading tab, Index: {Main.VisibleStashIndex}"); //maybe replace waittime with Setting option
 
             yield return new WaitFunctionTimed(() => GetTypeOfCurrentVisibleStash() != InventoryType.InvalidInventory, true, 2000,
@@ -160,25 +184,16 @@ internal class ActionsHandler
 
     public static IEnumerator StashItem(FilterResult stashResult)
     {
-        Input.SetCursorPos(stashResult.ClickPos + Main.ClickWindowOffset);
+        var position = stashResult.ClientRect.ClickRandom() + Main.ClickWindowOffset;
+        Input.SetCursorPos(position);
         yield return new WaitTime(Main.Settings.HoverItemDelay);
-        var shiftUsed = false;
 
-        if (stashResult.ShiftForStashing)
-        {
-            Input.KeyDown(Keys.ShiftKey);
-            shiftUsed = true;
-        }        
-            
         // If bulk stash is enabled, we ctrl-right click stackable currency and fragments to stash them in bulk
         if (Main.Settings.EnableBulkStash && (stashResult.ItemData.ClassName == "StackableCurrency" || stashResult.ItemData.ClassName == "Fragment")) 
             Input.Click(MouseButtons.Right);
         else 
             Input.Click(MouseButtons.Left);
         
-        if (Input.IsKeyDown(Keys.ShiftKey) || shiftUsed)           
-            Input.KeyUp(Keys.ShiftKey);
-
         yield return new WaitTime(Main.Settings.StashItemDelay);
     }
 }

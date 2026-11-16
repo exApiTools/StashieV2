@@ -1,6 +1,5 @@
 ﻿using ExileCore;
 using ExileCore.Shared;
-using ImGuiNET;
 using Stashie.Classes;
 using Stashie.Compartments;
 using Stashie.Filter;
@@ -65,6 +64,8 @@ public class StashieCore : BaseSettingsPlugin<StashieSettings>
         Input.RegisterKey(Settings.DropHotkey);
 
         Settings.DropHotkey.OnValueChanged += () => { Input.RegisterKey(Settings.DropHotkey); };
+        Input.RegisterKey(Settings.ToggleIgnoredCellHotkey.Value);
+        Settings.ToggleIgnoredCellHotkey.OnValueChanged += () => { Input.RegisterKey(Settings.ToggleIgnoredCellHotkey.Value); };
         Settings.FilterFile.OnValueSelected = _ => FilterManager.LoadCustomFilters();
 
         return true;
@@ -138,8 +139,22 @@ public class StashieCore : BaseSettingsPlugin<StashieSettings>
         }
     }
 
+    public override void Render()
+    {
+        try
+        {
+            IgnoredCellsOverlay.Draw();
+        }
+        catch
+        {
+            // Overlay is cosmetic; never let a transient read failure break rendering.
+        }
+    }
+
     public override Job Tick()
     {
+        IgnoredCellsOverlay.HandleHotkey();
+
         if (!StashingRequirementsMet() && Core.ParallelRunner.FindByName("Stashie_DropItemsToStash") != null)
         {
             ActionCoRoutine.StopCoroutine("Stashie_DropItemsToStash");

@@ -3,15 +3,14 @@ using ExileCore.Shared;
 using ExileCore.Shared.Enums;
 using ExileCore.Shared.Helpers;
 using ItemFilterLibrary;
-using SharpDX;
 using Stashie.Classes;
 using System;
 using System.Collections;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using static ExileCore.PoEMemory.MemoryObjects.ServerInventory;
 using static Stashie.StashieCore;
-using Vector2N = System.Numerics.Vector2;
 
 namespace Stashie.Compartments;
 
@@ -64,7 +63,7 @@ internal class FilterManager
         }
     }
 
-    public static FilterResult CheckFilters(ItemData itemData, Vector2N clickPos)
+    public static FilterResult CheckFilters(ItemData itemData, RectangleF clientRect, int invPosX, int invPosY)
     {
         foreach (var filter in Main.currentFilter)
         {
@@ -76,7 +75,7 @@ internal class FilterManager
                         continue;
 
                     if (filter.CompareItem(itemData, subFilter.CompiledQuery))
-                        return new FilterResult(subFilter, itemData, clickPos);
+                        return new FilterResult(subFilter, itemData, clientRect, invPosX, invPosY);
                 }
                 catch (Exception ex)
                 {
@@ -92,7 +91,6 @@ internal class FilterManager
     {
         var _serverData = Main.GameController.Game.IngameState.Data.ServerData;
         var invItems = _serverData.PlayerInventories[0].Inventory.InventorySlotItems;
-
         yield return new WaitFunctionTimed(() => invItems != null, true, 500, "ServerInventory->InventSlotItems is null!");
         Main.DropItems = [];
         Main.ClickWindowOffset = Main.GameController.Window.GetWindowRectangle().TopLeft.ToVector2Num();
@@ -106,7 +104,7 @@ internal class FilterManager
                 continue;
 
             var testItem = new ItemData(invItem.Item, Main.GameController);
-            var result = CheckFilters(testItem, invItem.GetClientRect().Center.ToVector2Num());
+            var result = CheckFilters(testItem, invItem.GetClientRect().ToDrawing(), invItem.PosX, invItem.PosY);
             if (result != null)
                 Main.DropItems.Add(result);
         }
@@ -124,7 +122,7 @@ internal class FilterManager
                     continue;
 
                 var testItem = new ItemData(expandedInvItem.Item, Main.GameController);
-                var result = CheckFilters(testItem, GetExpandedClientRect(expandedInvItem).Center.ToVector2Num());
+                var result = CheckFilters(testItem, GetExpandedClientRect(expandedInvItem), expandedInvItem.PosX, expandedInvItem.PosY);
                 if (result != null)
                     Main.DropItems.Add(result);
             }
@@ -159,6 +157,6 @@ internal class FilterManager
         var playerInventElement = Main.GameController.IngameState.IngameUi.InventoryPanel[InventoryIndex.PlayerExpandedInventory];
         var inventClientRect = playerInventElement.GetClientRect();
         var cellSize = inventClientRect.Width / 4;
-        return item.Location.GetItemRect(inventClientRect.X, inventClientRect.Y, cellSize);
+        return item.Location.GetItemRect(inventClientRect.X, inventClientRect.Y, cellSize).ToDrawing();
     }
 }

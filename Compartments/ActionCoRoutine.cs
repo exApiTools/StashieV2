@@ -39,10 +39,9 @@ internal class ActionCoRoutine
     {
         var cursorPosPreMoving = Input.ForceMousePositionNum;
 
-        //try stashing items 3 times
         var originTab = ActionsHandler.GetIndexOfCurrentVisibleTab();
         yield return FilterManager.ParseItems();
-        for (var tries = 0; tries < 3 && Main.DropItems.Count > 0; ++tries)
+        for (var tries = 0; tries < Main.Settings.Attempts && Main.DropItems.Count > 0; ++tries)
         {
             if (Main.DropItems.Count > 0)
                 yield return ActionsHandler.StashItemsIncrementer();
