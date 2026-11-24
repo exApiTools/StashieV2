@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using ExileCore;
-using ImGuiNET;
 using Stashie.Classes;
 using static Stashie.StashieCore;
 using Vector2N = System.Numerics.Vector2;
@@ -108,11 +107,11 @@ public class StashieEditorHandler
                 continue;
             }
 
-            ImGui.BeginChild($"parentFilterGroup_{localParentIndex}", Vector2N.Zero, ImGuiChildFlags.Border | ImGuiChildFlags.AutoResizeY);
+            ImGui.BeginChild($"parentFilterGroup_{localParentIndex}", Vector2N.Zero, ImGuiChildFlags.Borders | ImGuiChildFlags.AutoResizeY);
             HandleGroupDragDrop(tempFilters, localParentIndex);
             ImGui.Indent();
             ImGui.InputTextWithHint("Group Name", "\"Heist Items\" etc..", ref currentParent.MenuName, 200);
-            ImGui.BeginChild($"innerParentFilterGroup_{localParentIndex}", Vector2N.Zero, ImGuiChildFlags.Border | ImGuiChildFlags.AutoResizeY);
+            ImGui.BeginChild($"innerParentFilterGroup_{localParentIndex}", Vector2N.Zero, ImGuiChildFlags.Borders | ImGuiChildFlags.AutoResizeY);
 
             for (var filterIndex = 0; filterIndex < currentParent.Filters.Count; filterIndex++)
             {
